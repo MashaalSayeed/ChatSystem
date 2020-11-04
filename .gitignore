@@ -3,3 +3,4 @@
 folder/
 *.key
 .dat
+.credentials.dat
