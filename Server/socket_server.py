@@ -72,6 +72,7 @@ class SocketServer:
             await s.send(header, body)
 
     async def listen(self, reader, writer):
+        "Initialise new socket instance upon connection"
         socket = Socket(self, reader, writer)
         print("\nConnection from:", socket.addr)
         self.sockets.append(socket)
@@ -134,4 +135,5 @@ class Socket:
 
         self.server.sockets.remove(self)
         self.writer.close()
+        await self.writer.wait_closed()
 

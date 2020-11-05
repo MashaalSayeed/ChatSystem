@@ -15,6 +15,7 @@ FONT3 = ("Arial Bold", 11)
 FONT4 = ("Arial", 10)
 RED = "#d9514e"
 BLUE = "#2da8d8"
+BLACK = "#2a2b2d"
 
 EMAIL_REGEX = re.compile(r"^\s+@\s+\.\s+$")
 
@@ -175,7 +176,7 @@ class LoginFrame(ChildFrame):
         self.password_entry = create_entry(self.login_window, "Password", row=4, column=1, bg=BLUE, show="*")
         tk.Checkbutton(self.login_window, text='Remember me', bg=BLUE, anchor='w', variable=self.remember).grid(row=7, column=1, sticky='nsew')
 
-        tk.Button(self.login_window, text="Login", font=FONT2, height=2, command=self.check_login).grid(row=8, column=1, sticky="nsew")
+        tk.Button(self.login_window, text="Login",font=FONT2, height=2, command=self.check_login).grid(row=8, column=1, sticky="nsew")
         try:
             # Load existing credentials if any
             with open('credentials.dat', 'rb') as file:
@@ -365,6 +366,10 @@ class ChatFrame(ChildFrame):
         self.controller.add_message(*body)
         if self.id == body[1]:
             self.add_message(body[2:])
+            self.message_frame.canvas.yview_moveto(1)
+        else:
+            print('ring')
+            self.controller.window.bell()
 
     def send_message(self, e=None):
         message = self.msg_entry.get().strip()
@@ -390,7 +395,13 @@ class ChatFrame(ChildFrame):
             self.option_btn.configure(state=tk.DISABLED)
 
         self.title.configure(text=self.data['name'])
-        [self.add_message(m) for m in self.data.get('messages', [])]
+        messages = self.data.get('messages')
+        if messages:
+            [self.add_message(m) for m in messages]
+        else:
+            # To be honest, i didnt want this, but i found no other solution
+            # to fixing the scrollbar
+            tk.Label(self.message_frame.frame, text='Welcome! Start the conversation by sending a message', font=FONT3).pack(pady=5, padx=10)
 
 
 class ChatOptions(ChildFrame):
@@ -411,14 +422,15 @@ class ChatOptions(ChildFrame):
         tk.Button(title_frame, text='Go Back', font=FONT3, height=2, pady=5, command=self.back).pack(side='right', fill=tk.Y)
 
         self.member_entry = create_submit_entry(self, label_text="Enter Email ID of participant", btn_text="Add", command=self.invite_member, row=2, column=1)
-        self.member_list = ScrollableFrame(self)
+        self.member_list = ScrollableFrame(self, bd=2, relief=tk.SUNKEN)
         self.member_list.grid(row=5, column=1, sticky='nsew')
 
-        tk.Button(self, text='Leave Room', font=FONT2, bg=RED, command=self.leave_room).grid(row=7, column=1, sticky='nsew')
+        tk.Button(self, text='Leave Room', font=FONT2, bg=RED, command=self.leave_room).grid(row=6, column=1, sticky='nsew', pady=15)
 
         grid_column_configure(self)
-        [self.rowconfigure(i, minsize=15) for i in (1,4,6)]
-        [self.rowconfigure(i, minsize=30) for i in (0,2,3,5,7)]
+        self.rowconfigure(5, weight=1)
+        [self.rowconfigure(i, minsize=15) for i in (1,4)]
+        [self.rowconfigure(i, minsize=30) for i in (0,2,3,5,6)]
 
     def back(self):
         self.controller.frames['MainFrame'].chat_frame.tkraise()
@@ -480,14 +492,15 @@ class RoomsFrame(ChildFrame):
 
     def make_widgets(self):
         tk.Label(self, text='Recent Conversations', anchor='w', font=FONT2).grid(row=1, column=1, sticky="nsew")
-        self.roomlist_frame = ScrollableFrame(self, bd=2)
-        self.roomlist_frame.grid(row=2, rowspan=2, column=1, sticky="nsew")
+        self.roomlist_frame = ScrollableFrame(self, bd=2, relief=tk.SUNKEN)
+        self.roomlist_frame.grid(row=2, column=1, sticky="nsew")
 
-        tk.Button(self, text='Create New Chat Group', font=FONT2, command=self.create_chat_window).grid(row=5, column=1, sticky="nsew")
+        tk.Button(self, text='Create New Chat Group', bg="#184a45", fg="white", height=2, font=FONT2, command=self.create_chat_window).grid(row=3, column=1, sticky="nsew", pady=15)
 
         grid_column_configure(self)
-        [self.rowconfigure(i, minsize=15) for i in (0,4)]
-        [self.rowconfigure(i, minsize=30) for i in (1,2,3,5)]
+        self.rowconfigure(2, weight=1)
+        [self.rowconfigure(i, minsize=15) for i in (0,)]
+        [self.rowconfigure(i, minsize=30) for i in (1,2,3)]
     
     def create_chat_window(self):
         ChatCreateWindow(self.master, self.controller)
@@ -495,7 +508,7 @@ class RoomsFrame(ChildFrame):
     def add_room(self, roomid, roomname):
         main_frame = self.controller.frames['MainFrame']
         command = lambda r=roomid: main_frame.open_chat(r)
-        tk.Button(self.roomlist_frame.frame, height=2, bd=5, text=f'Room: {roomname}', anchor="w", font=FONT3, command=command).pack(fill=tk.X, expand=True)
+        tk.Button(self.roomlist_frame.frame, height=2, bd=5, text=f'Room: {roomname}', anchor="w", font=FONT3, command=command).pack(fill=tk.X, expand=True, pady=2)
     
     def fetch_rooms(self, body):
         [self.controller.add_room(*room) for room in body]
@@ -548,7 +561,7 @@ class ChatCreateWindow(tk.Toplevel):
         self.title = create_entry(self, "Enter Title", row=1, column=1)
         self.member_entry = create_submit_entry(self, label_text="Enter Email ID of participant", btn_text="Add", command=self.fetch_member, row=4, column=1)
 
-        self.member_list = ScrollableFrame(self)
+        self.member_list = ScrollableFrame(self, bd=2, relief=tk.SUNKEN)
         self.member_list.grid(row=7, column=1, sticky='nsew')
 
         tk.Button(self, text="Create Chat", bg='green', fg='white', command=self.create_room, height=2, font=FONT2).grid(row=9, column=1, sticky="nsew")
@@ -605,7 +618,7 @@ class FriendsFrame(ChildFrame):
         self.member_entry = create_submit_entry(self, label_text="Enter Email ID of new friend", btn_text="Add", command=self.add_friend, row=1, column=1)
         tk.Label(self, text='Friend List', anchor="w", font=FONT3).grid(row=4, column=1, sticky="nsew")
         
-        self.friend_list = ScrollableFrame(self)
+        self.friend_list = ScrollableFrame(self, bd=2, relief=tk.SUNKEN)
         self.friend_list.grid(row=5, column=1, sticky="nsew")
 
         grid_column_configure(self)
@@ -702,7 +715,7 @@ class ScrollableFrame(tk.Frame):
 
         # Create a frame inside a canvas, pack it to left
         # Create a vertical scrollbar, pack it to right
-        self.canvas = tk.Canvas(self, borderwidth=0, background=kwargs.get('bg', 'white'))
+        self.canvas = tk.Canvas(self, bd=0, background=kwargs.get('bg', 'white'))
         self.frame = tk.Frame(self.canvas, background=kwargs.get('bg', 'white'))
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
@@ -720,14 +733,14 @@ class ScrollableFrame(tk.Frame):
         "Deletes all items on the frame and resets the scrollbar"
         for child in self.frame.winfo_children():
             child.destroy()
-
+    
         self.canvas.yview_moveto(0)
 
     def resize_frame(self, event):
         "Resize frame to canvas size"
         self.canvas.itemconfigure(self.canvas_frame, width=event.width)
     
-    def update_scrollbar(self, event):
+    def update_scrollbar(self, event=None):
         "Update scroll region to cover whole canvas"
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.canvas.yview_moveto(1)
