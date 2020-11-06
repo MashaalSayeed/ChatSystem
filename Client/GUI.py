@@ -2,10 +2,11 @@ import asyncio
 import pickle
 import re
 import tkinter as tk
+import tkinter.ttk as ttk
 
 from collections import defaultdict
 from datetime import datetime
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, simpledialog
 
 
 # Initialize fonts, colors, regex
@@ -211,6 +212,7 @@ class LoginFrame(ChildFrame):
                     pickle.dump(self.credentials, file)
 
             self.controller.user = body.get('user')
+            print(body)
             self.controller.show_frame('MainFrame')
 
     def sign_up(self):
@@ -368,8 +370,7 @@ class ChatFrame(ChildFrame):
             self.add_message(body[2:])
             self.message_frame.canvas.yview_moveto(1)
         else:
-            print('ring')
-            self.controller.window.bell()
+            self.bell()
 
     def send_message(self, e=None):
         message = self.msg_entry.get().strip()
@@ -400,7 +401,7 @@ class ChatFrame(ChildFrame):
             [self.add_message(m) for m in messages]
         else:
             # To be honest, i didnt want this, but i found no other solution
-            # to fixing the scrollbar
+            # to fix the scrollbar
             tk.Label(self.message_frame.frame, text='Welcome! Start the conversation by sending a message', font=FONT3).pack(pady=5, padx=10)
 
 
@@ -659,34 +660,50 @@ class ProfileFrame(ChildFrame):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
         self.status = tk.StringVar()
+        self.username = tk.StringVar()
+        self.phone = tk.StringVar()
+        self.address = tk.StringVar()
         self.status.set('online')
     
     def load(self):
+        self.username.set(self.controller.user[2])
+        self.phone.set(self.controller.user[3] or '')
+        self.address.set(self.controller.user[4] or '')
         self.make_widgets()
 
     def make_widgets(self):
-        info_frame = tk.Frame(self)
+        info_frame = tk.LabelFrame(self, text=f'Welcome {self.controller.user[1]}!', font=FONT1, pady=5, padx=5)
         info_frame.grid(row=1, column=1, sticky='nsew')
-        tk.Label(info_frame, text='Email ID:', anchor='w', font=FONT2).grid(row=0, column=0, sticky='nsew')
-        tk.Label(info_frame, text=self.controller.user[1], relief=tk.SUNKEN, font=FONT2).grid(row=0, column=1, sticky='nsew')
-        tk.Label(info_frame, text='Username:', anchor='w', font=FONT2).grid(row=1, column=0, sticky='nsew')
-        tk.Label(info_frame, text=self.controller.user[2], relief=tk.SUNKEN, font=FONT2).grid(row=1, column=1, sticky='nsew')
-        tk.Label(info_frame, text='Status', anchor='w', font=FONT2).grid(row=2, column=0, sticky='nsew')
-        self.status_menu = tk.OptionMenu(info_frame, self.status, 'online', 'busy', 'do not disturb', command=self.select_status)
-        self.status_menu.grid(row=2, column=1, sticky='nsew')
-        self.status_menu.config(bg="green", fg='white')
 
+        self.image = tk.PhotoImage(file='avatar.png')
+        tk.Label(info_frame, image=self.image).grid(row=0, sticky='nsew', pady=5)
+
+        side_image_frame = tk.Frame(info_frame)
+        side_image_frame.grid(row=0, column=1, sticky='nsew', pady=25)
+        self.status_menu = tk.OptionMenu(side_image_frame, self.status, 'online', 'busy', 'do not disturb', command=self.select_status)
+        self.status_menu.pack(fill=tk.X, expand=True)
+        self.select_status('online')
+
+        tk.Button(side_image_frame, text='Change Password', bg="#184a45", fg='white', font=FONT3, command=self.display_change_password).pack(fill=tk.X, expand=True)
+        tk.Button(side_image_frame, text='Logout', bg='red', fg='white', font=FONT3, command=self.logout).pack(fill=tk.X, expand=True)
+
+        ttk.Separator(info_frame, orient=tk.HORIZONTAL).grid(row=1, columnspan=2, pady=4, sticky='nsew')
+
+        tk.Label(info_frame, text='Username:', anchor='w', font=FONT3).grid(row=2, column=0, sticky='nsew')
+        tk.Entry(info_frame, textvariable=self.username, justify='center', relief=tk.SUNKEN, font=FONT3).grid(row=2, column=1, sticky='nsew', pady=5)
+        tk.Label(info_frame, text='Phone Number:', anchor='w', font=FONT3).grid(row=3, column=0, sticky='nsew')
+        tk.Entry(info_frame, textvariable=self.phone, justify='center', relief=tk.SUNKEN, font=FONT3).grid(row=3, column=1, sticky='nsew', pady=5)
+        tk.Label(info_frame, text='Address:', anchor='w', font=FONT3).grid(row=4, column=0, sticky='nsew')
+        tk.Entry(info_frame, textvariable=self.address, justify='center', relief=tk.SUNKEN, font=FONT3).grid(row=4, column=1, sticky='nsew', pady=5)
+
+        tk.Button(info_frame, text='Save', bg='green', fg='white', font=FONT2, command=self.save_profile).grid(row=5, columnspan=2, sticky='nsew', pady=5)
         [info_frame.columnconfigure(i, weight=1) for i in (0,1)]
 
-        self.old_password = create_entry(self, 'Old Password', row=3, column=1, show='*')
-        self.new_password = create_entry(self, 'New Password', row=6, column=1, show='*')
-        tk.Button(self, text='Save', font=FONT3, command=self.change_password).grid(row=9, column=1, sticky='nsew')
-
-        tk.Button(self, text='Logout', bg='red', fg='white', font=FONT3, command=self.logout).grid(row=11, column=1, sticky='nsew')
+        tk.Button(self, text='Delete Account', bg='red', fg='white', font=FONT3, command=self.delete_user).grid(row=2, column=1, sticky='nsew', pady=5)
 
         grid_column_configure(self)
-        [self.rowconfigure(i, minsize=15) for i in (0,2,5,8,10)]
-        [self.rowconfigure(i, minsize=30) for i in (1,3,4,6,7,9,11)]
+        [self.rowconfigure(i, minsize=15) for i in (0,)]
+        [self.rowconfigure(i, minsize=30) for i in (1,2)]
 
     def change_password(self):
         oldpass = self.old_password.get().strip()
@@ -695,17 +712,53 @@ class ProfileFrame(ChildFrame):
         if len(newpass) < 6: 
             return messagebox.showerror('Invalid Password', 'Password must be atleast 6 characters long')
         self.socket.send_data('CHANGE_PASSWORD', oldpass=oldpass, newpass=newpass)
+        if hasattr(self, 'pwindow'):
+            self.pwindow.destroy()
 
     def select_status(self, event):
         colors = {
-            'online': ('green', 'white'),
-            'busy': ('yellow', 'black'), 
-            'do not disturb': ('red', 'white')
+            'online': ('sea green', 'white'),
+            'busy': ('yellow2', 'black'), 
+            'do not disturb': ('indian red', 'white')
         }
-        self.status_menu.config(bg=colors[event][0], fg=colors[event][1])
+        self.status_menu.config(bg=colors[event][0], fg=colors[event][1], font=FONT3)
+    
+    def save_profile(self):
+        username, phone, address = self.username.get(), self.phone.get(), self.address.get()
+        if not (3 <= len(username) <= 30): 
+            return messagebox.showerror('Invalid Username', 'Username must be 3 to 30 characters long')
+        elif not username.isalnum():
+            return messagebox.showerror('Invalid Username', 'Username can only contain alphabets and numbers')
+        elif phone and not phone.isdigit() or len(phone) != 9:
+            return messagebox.showerror('Invalid Phone Number', 'Phone number must contain 9 digits')
+        elif len(address) > 100:
+            return messagebox.showerr('Invalid Address', 'Address should not be more than 100 characters long')
+        
+        self.socket.send_data('UPDATE_PROFILE', username=username, phone=phone, address=address)
 
     def logout(self):
         self.socket.send_data('LOGOUT')
+
+    def display_change_password(self):
+        if hasattr(self, 'pwindow'):
+            self.pwindow.destroy()
+        self.pwindow = tk.Toplevel(self, bg=BLUE)
+        self.pwindow.title('Change Password')
+        self.pwindow.geometry("300x250")
+
+        self.old_password = create_entry(self.pwindow, "Old Password", row=1, column=1, bg=BLUE, show="*")
+        self.new_password = create_entry(self.pwindow, "New Password", row=4, column=1, bg=BLUE, show="*")
+
+        tk.Button(self.pwindow, text="Save", font=FONT2, height=2, command=self.change_password).grid(row=7, column=1, sticky="nsew")
+        grid_column_configure(self.pwindow)
+        [self.pwindow.rowconfigure(i, minsize=15) for i in (0,3,6)]
+        [self.pwindow.rowconfigure(i, minsize=30) for i in (1,2,4,5,7)]
+
+    def delete_user(self):
+        if messagebox.askyesno('Delete Account', 'Are you sure you want to delete your account? This action cannot be undone'):
+            password = simpledialog.askstring('Delete Account', 'Enter current password', show='*')
+            if password:
+                self.socket.send_data('DELETE_ACCOUNT', password=password)
 
 
 class ScrollableFrame(tk.Frame):

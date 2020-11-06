@@ -85,7 +85,7 @@ class SocketClient:
         try:
             while True:
                 header, body = await self.read()
-                print(header, body)
+                print(header)
                 
                 if header in self.events:
                     self.events[header](body)

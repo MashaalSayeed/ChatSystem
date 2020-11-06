@@ -49,10 +49,31 @@ def login_user(server, email, password):
     hashed = server.cursor.fetchone()
     if hashed and compare_password(password, hashed[0]):
         # Enter actual query here..
-        server.cursor.execute("SELECT userid, email, username FROM users WHERE email=%s", (email,))
+        server.cursor.execute("SELECT userid, email, username, phone, address FROM users WHERE email=%s", (email,))
         return True, server.cursor.fetchone()
     else:
         return False, None
+
+
+def delete_account(server, user, password):
+    server.cursor.execute("SELECT password FROM users WHERE userid=%s", (user[0],))
+    hashed = server.cursor.fetchone()
+    if hashed and compare_password(password, hashed[0]):
+        server.cursor.execute("DELETE FROM users WHERE userid=%s", (user[0],))
+        server.conn.commit()
+        return True
+    else:
+        return False
+
+
+def update_profile(server, user, username, phone, address):
+    try:
+        server.cursor.execute("UPDATE users SET username=%s, phone=%s, address=%s WHERE userid=%s", (username, phone, address, user[0]))
+        server.conn.commit()
+        return 'INFO', {'message': 'Profile Successfully Updated!'}
+    except Exception as e:
+        print(e)
+        return 'ERROR', {'message': 'Could not update profile information'}
 
 
 def fetch_rooms(server, user):

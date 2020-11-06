@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS users (
   userid INT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(30) UNIQUE NOT NULL,
   email VARCHAR(60) UNIQUE NOT NULL,
+  phone INT(9),
+  address VARCHAR(100),
   password CHAR(108)
 );""")
 

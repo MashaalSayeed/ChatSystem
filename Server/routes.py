@@ -5,7 +5,7 @@ async def login(socket, server, body):
     "Handle login requests"
     success, user = db.login_user(server, **body)
     if success:
-        socket.user = user
+        socket.user = list(user)
         await socket.send('LOGIN', {'message': 'Login success!!', 'user': user})
     else:
         await socket.send('LOGIN', {'error': True, 'message': 'Invalid email id or password'})
@@ -30,6 +30,25 @@ async def change_password(socket, server, body):
     "Change password, error if old password is invlaid"
     h, b = db.change_password(server, socket.user, **body)
     await socket.send(h, b)
+
+
+async def delete_account(socket, server, body):
+    "Deletes the account if exists"
+    if db.delete_account(server, socket.user, **body):
+        await socket.send('INFO', {'message': 'Account successfully deleted'})
+        socket.user = None
+        server.leave_all_rooms(socket)
+        await socket.send('LOGOUT', {})
+    else:
+        await socket.send('ERROR', {'message': 'Invalid password'})
+
+
+async def update_profile(socket, server, body):
+    h,b = db.update_profile(server, socket.user, **body)
+    await socket.send(h, b)
+    if h != 'ERROR':
+        socket.user[2:] = [body.get('username'), body.get('phone'), body.get('address')]
+        print(socket.user)
 
 
 async def fetch_user(socket, server, body):
@@ -166,6 +185,8 @@ ROUTES = {
     'REGISTER': register,
     'LOGOUT': logout,
     'CHANGE_PASSWORD': change_password,
+    'DELETE_ACCOUNT': delete_account,
+    'UPDATE_PROFILE': update_profile,
     'FETCH_USER': fetch_user,
     'FETCH_RECENT_CHATS': fetch_recent_chats,
     'FETCH_MEMBERS': fetch_members,
