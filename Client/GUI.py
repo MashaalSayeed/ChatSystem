@@ -6,7 +6,7 @@ import tkinter.ttk as ttk
 
 from collections import defaultdict
 from datetime import datetime
-from tkinter import messagebox, scrolledtext, simpledialog
+from tkinter import messagebox, simpledialog
 
 
 # Initialize fonts, colors, regex
@@ -45,6 +45,7 @@ def grid_column_configure(frame):
     "Gives weight 2 for column 1, and weight 1 for column 0 and 2"
     frame.columnconfigure(1, weight=2)
     [frame.columnconfigure(i, weight=1) for i in (0,2)]
+
 
 
 class MainWindow:

@@ -36,9 +36,7 @@ async def delete_account(socket, server, body):
     "Deletes the account if exists"
     if db.delete_account(server, socket.user, **body):
         await socket.send('INFO', {'message': 'Account successfully deleted'})
-        socket.user = None
-        server.leave_all_rooms(socket)
-        await socket.send('LOGOUT', {})
+        await logout(socket, server, body)
     else:
         await socket.send('ERROR', {'message': 'Invalid password'})
 
