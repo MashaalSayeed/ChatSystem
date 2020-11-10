@@ -3,4 +3,5 @@
 folder/
 *.key
 .dat
+**/uploads/
 credentials.dat

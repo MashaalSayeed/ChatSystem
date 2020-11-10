@@ -1,6 +1,7 @@
 import hashlib
 import base64
 import os
+import uuid
 
 from datetime import datetime
 
@@ -20,6 +21,14 @@ def compare_password(raw, encrypted):
         return hashed == password
     except Exception as e:
         return False
+
+
+def store_file(filedata):
+    filename = uuid.uuid4().hex
+    with open(f'./uploads/{filename}', 'wb') as file:
+        filedata = base64.b64decode(filedata.encode())
+        file.write(filedata)
+    return filename
 
 
 def change_password(server, user, oldpass, newpass):
@@ -102,13 +111,13 @@ WHERE
 
 def fetch_recent_chats(server, user, body):
     server.cursor.execute("""
-SELECT 'public', m.roomid, content, email, username, created_at FROM
+SELECT 'public', m.roomid, content, email, username, actualname, filename, created_at FROM
   messages m, users, room_members rm
 WHERE
   m.author = users.userid AND
   m.roomid = rm.roomid AND rm.userid = %s
 UNION 
-SELECT 'private', f.id, content, email, username, created_at FROM
+SELECT 'private', f.id, content, email, username, actualname, filename, created_at FROM
   messages m, users, friends f
 WHERE
   m.author = users.userid AND m.friendid = f.id AND
@@ -118,25 +127,27 @@ ORDER BY created_at DESC;""", [user[0]]*3)
     return server.cursor.fetchall()
 
 
-def send_message(server, user, room, content):
+def add_message(server, user, _id, content, attachment, private=False):
     now = datetime.now()
+    if attachment:
+        actualname, filedata = attachment
+        filename = store_file(filedata)
+    else:
+        filename, actualname = None, None
+
     try:
-        server.cursor.execute("INSERT INTO messages (roomid, author, content, created_at) VALUES (%s, %s, %s, %s)", (room, user[0], content, now))
+        if private:
+            query = "INSERT INTO messages (friendid, author, content, actualname, filename, created_at) VALUES (%s, %s, %s, %s, %s, %s)"
+        else:
+            query = "INSERT INTO messages (roomid, author, content, actualname, filename, created_at) VALUES (%s, %s, %s, %s, %s, %s)"
+
+        server.cursor.execute(query, (_id, user[0], content, actualname, filename, now))
         server.conn.commit()
-        return ['public', room, content, user[1], user[2], now]
+        return [_id, content, user[1], user[2], actualname, filename, now]
     except Exception as e:
         print(e)
         return False
 
-def send_private_message(server, user, fid, content):
-    now = datetime.now()
-    try:
-        server.cursor.execute('INSERT INTO messages (friendid, author, content, created_at) VALUES (%s, %s, %s, %s)', (fid, user[0], content, now))
-        server.conn.commit()
-        return ['private', fid, content, user[1], user[2], now]
-    except Exception as e:
-        print(e)
-        return False
 
 def create_room(server, user, roomname, members):
     try:

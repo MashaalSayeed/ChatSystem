@@ -1,3 +1,4 @@
+import base64
 import database as db
 
 
@@ -93,24 +94,34 @@ async def remove_friend(socket, server, body):
 
 async def send_message(socket, server, body):
     "Sends a message to a chat room"
-    message = db.send_message(server, socket.user, **body)
+    message = db.add_message(server, socket.user, **body)
     if message:
-        await server.send_room(body['room'], 'MESSAGE', message)
+        await server.send_room(body['_id'], 'MESSAGE', ['public'] + message)
     else:
         await socket.send('ERROR', {'message': 'Message was not sent!'})
 
 
 async def send_private_message(socket, server, body):
     "Sends a private message to a friend"
-    message = db.send_private_message(server, socket.user, **body)
+    message = db.add_message(server, socket.user, private=True, **body)
     if message:
-        server.cursor.execute("SELECT IF(userid1=%s, userid2, userid1) FROM friends WHERE id=%s;", (socket.user[0], body.get('fid')))
+        server.cursor.execute("SELECT IF(userid1=%s, userid2, userid1) FROM friends WHERE id=%s;", (socket.user[0], body.get('_id')))
         friend = server.cursor.fetchone()
 
-        await server.send_to(friend[0], 'MESSAGE', message)
-        await socket.send('MESSAGE', message)
+        await server.send_to(friend[0], 'MESSAGE', ['private'] + message)
+        await socket.send('MESSAGE', ['private'] + message)
     else:
         await socket.send('ERROR', {'message': 'Message was not sent!'})
+
+
+async def download_file(socket, server, body):
+    filename, actualname = body.get('filename'), body.get('actualname')
+    try:
+        with open(f'./uploads/{filename}', 'rb') as file:
+            filedata = base64.b64encode(file.read()).decode()
+            await socket.send('DOWNLOAD_FILE', [actualname, filedata])
+    except:
+        await socket.send('ERROR', {'message': f'File "{actualname}" does not exist anymore. Ask the author to resend the attachment'})
 
 
 async def create_room(socket, server, body):
@@ -193,6 +204,7 @@ ROUTES = {
     'REMOVE_FRIEND': remove_friend,
     'SEND_MESSAGE': send_message,
     'SEND_PRIVATE_MESSAGE': send_private_message,
+    'DOWNLOAD_FILE': download_file,
     'CREATE_ROOM': create_room,
     'FETCH_ROOMS': fetch_rooms,
     'INVITE_MEMBER': invite_member,

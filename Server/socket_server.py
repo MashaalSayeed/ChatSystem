@@ -122,7 +122,7 @@ class Socket:
         while True:
             try:
                 header, body = await self.read()
-                print(self.addr, header, body)
+                print(self.addr, header)
                 finish = await self.handle_request(header, body)
                 if finish:
                     print(self.addr, 'Connection Closed')

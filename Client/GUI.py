@@ -1,4 +1,7 @@
 import asyncio
+import base64
+import math
+import os
 import pickle
 import re
 import tkinter as tk
@@ -6,7 +9,7 @@ import tkinter.ttk as ttk
 
 from collections import defaultdict
 from datetime import datetime
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, filedialog
 
 
 # Initialize fonts, colors, regex
@@ -46,6 +49,15 @@ def grid_column_configure(frame):
     frame.columnconfigure(1, weight=2)
     [frame.columnconfigure(i, weight=1) for i in (0,2)]
 
+
+def format_filesize(size):
+    if size == 0:
+       return "0 B"
+    
+    formats = ("B", "KB", "MB")
+    i = math.floor(math.log(size, 1024))
+    s = round(size / math.pow(1024, i), 2)
+    return f"{s} {formats[i]}"
 
 
 class MainWindow:
@@ -90,9 +102,9 @@ class MainWindow:
         "Adds new room data or updates existing ones"
         self.chats[roomid].update({'owner': ownerid, 'name': roomname})
 
-    def add_message(self, type, id, username, email, content, created_at):
+    def add_message(self, type, id, username, email, content, actualname, filename, created_at):
         "Creates room data for public message and friend for private, and appends message data"
-        msg = [username, email, content, created_at]
+        msg = [username, email, content, actualname, filename, created_at]
         if type == 'public':
             self.chats[id]['messages'].append(msg)
         else:
@@ -327,34 +339,74 @@ class ChatFrame(ChildFrame):
         self.room = {}
         self.id = -1
         self.private = False
+        self.attachment = None
         self.make_widgets()
         self.socket.register_event('MESSAGE', self.new_message)
+        self.socket.register_event('DOWNLOAD_FILE', self.download_file)
 
     def make_widgets(self):
         title_frame = tk.Frame(self, bd=3, relief=tk.RAISED)
-        title_frame.pack(fill=tk.X)
+        title_frame.grid(row=0, sticky='nsew')
         self.title = tk.Label(title_frame, pady=5, height=2, text='Room', font=FONT2)
         self.title.pack(side="left", fill=tk.BOTH, expand=True)
         self.option_btn = tk.Button(title_frame, text='Options', font=FONT3, height=2, pady=5, command=self.display_options)
         self.option_btn.pack(side='right', fill=tk.Y)
 
         self.message_frame = ScrollableFrame(self, bg='light green', height=1)
-        self.message_frame.pack(fill=tk.BOTH, expand=True)
+        self.message_frame.grid(row=1, sticky='nsew')#.pack(fill=tk.BOTH, expand=True)
+
+        self.attachment_frame = tk.Frame(self)
+        self.attachment_title = tk.Label(self.attachment_frame, text='')
+        self.attachment_title.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tk.Button(self.attachment_frame, text='X', width=2, command=self.close_attachment).pack(side=tk.RIGHT)
 
         send_frame = tk.Frame(self, bd=3, relief=tk.RAISED)
-        send_frame.pack(fill=tk.X)
+        send_frame.grid(row=3, sticky='nsew')#.pack(fill=tk.X)
         self.msg_entry = tk.Entry(send_frame, font=FONT4) # scrolledtext.ScrolledText(send_frame, font=FONT4, wrap=tk.WORD, height=2, width=15)
         self.msg_entry.pack(side='left', fill=tk.BOTH, expand=True)
+        self.attachment_image = tk.PhotoImage(file='attachment.png')
         tk.Button(send_frame, height=2, text='Send', bg='green', fg="white", font=FONT3, command=self.send_message).pack(side='right', fill=tk.BOTH, expand=True)
+        tk.Button(send_frame, image=self.attachment_image, command=self.get_attachment).pack(side='right', fill=tk.BOTH)
         self.msg_entry.bind('<Return>', self.send_message)
+
+        self.rowconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
     
+    def get_attachment(self):
+        file = filedialog.askopenfile(mode='rb')
+        if not file:
+            return
+
+        filesize = os.fstat(file.fileno()).st_size
+        if filesize > 80 * (2**20):
+            return messagebox.showerror('Error', 'Cannot send attachment greater than 10mb') 
+        # Open file and store the data and filename
+        filename = os.path.basename(file.name)
+        filedata = base64.b64encode(file.read()).decode()
+        self.attachment = [filename, filedata]
+
+        self.attachment_frame.grid(row=2, sticky='nsew')
+        self.attachment_title.config(text=f'{filename} ({format_filesize(filesize)})')
+
+    def download_file(self, file):
+        filename, extension = os.path.splitext(file[0])
+        save_file = filedialog.asksaveasfile(mode='wb', initialfile=filename, defaultextension=extension, filetypes=(("All files", "*"),))
+        if save_file:
+            filedata = base64.b64decode(file[1].encode())
+            save_file.write(filedata)
+            save_file.close()
+
+    def close_attachment(self):
+        self.attachment = None
+        self.attachment_frame.grid_forget()
+
     def display_options(self):
         options_frame = self.controller.frames['MainFrame'].chat_options_frame
         options_frame.load_chat(self.id)
         options_frame.tkraise()
     
     def add_message(self, message):
-        created_at = datetime.fromisoformat(message[3]).strftime('%d-%m-%Y %H:%M')
+        created_at = datetime.fromisoformat(message[5]).strftime('%d-%m-%Y %H:%M')
         if message[1] == self.controller.user[1]:
             bg, anchor = "#e0eee0", "e"
         else:
@@ -363,6 +415,14 @@ class ChatFrame(ChildFrame):
         frame = tk.Frame(self.message_frame.frame, borderwidth=1, relief=tk.RAISED)
         frame.pack(anchor=anchor, pady=5, padx=10)
         tk.Label(frame, text=f'{message[1]} ~ {message[2]} [{created_at}]', bg=bg, font=FONT3, padx=5).pack(fill=tk.X, expand=True)
+        if message[4]:
+            download_cmd = lambda: self.socket.send_data('DOWNLOAD_FILE', filename=message[4], actualname=message[3])
+            attachment_frame = tk.Frame(frame, padx=5, pady=5)
+            attachment_frame.pack(fill=tk.X, expand=True)
+
+            tk.Label(attachment_frame, text=f'Attachment: {message[3]}').pack(side=tk.LEFT, fill=tk.BOTH)
+            tk.Button(attachment_frame, text='Download', command=download_cmd).pack(side=tk.RIGHT, fill=tk.Y)
+
         tk.Message(frame, text=message[0], font=FONT4, bg=bg, anchor=anchor, width=300, padx=5).pack(anchor=anchor, fill=tk.BOTH, expand=True)
     
     def new_message(self, body):
@@ -375,18 +435,20 @@ class ChatFrame(ChildFrame):
 
     def send_message(self, e=None):
         message = self.msg_entry.get().strip()
-        if not message: return
+        if not message and not self.attachment: return
         if len(message) > 1024:
             messagebox.showerror('Max Length Exceeded', 'Message cannot be more than 1024 characters long')
         
         if self.private:
-            self.socket.send_data('SEND_PRIVATE_MESSAGE', fid=self.id, content=message)
+            self.socket.send_data('SEND_PRIVATE_MESSAGE', _id=self.id, content=message, attachment=self.attachment)
         else:
-            self.socket.send_data('SEND_MESSAGE', room=self.id, content=message)
+            self.socket.send_data('SEND_MESSAGE', _id=self.id, content=message, attachment=self.attachment)
         self.msg_entry.delete(0, tk.END)
+        self.close_attachment()
 
     def load_chat(self, _id, private=False):
         self.message_frame.clear() # Reset Messages
+        self.attachment = None
         self.private = private
         self.id = _id
         if not private:

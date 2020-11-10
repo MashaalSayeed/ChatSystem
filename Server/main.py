@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import mysql.connector
 from socket_server import SocketServer
@@ -11,6 +12,10 @@ class Server(SocketServer):
         
         self.conn = conn
         self.cursor = cursor
+
+# Ensure uploads folder exists
+if not os.path.exists('uploads'):
+    os.makedirs('uploads')
 
 # Start mysql connection
 conn = mysql.connector.connect(
@@ -28,7 +33,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
   userid INT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(30) UNIQUE NOT NULL,
-  email VARCHAR(60) UNIQUE NOT NULL,
+  email VARCHAR(254) UNIQUE NOT NULL,
   phone INT(9),
   address VARCHAR(100),
   password CHAR(108)
@@ -70,6 +75,8 @@ CREATE TABLE IF NOT EXISTS messages (
   friendid INT,
   author INT,
   content VARCHAR(1024),
+  filename CHAR(32),
+  actualname VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (roomid) REFERENCES rooms (roomid) ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (friendid) REFERENCES friends (id) ON DELETE CASCADE ON UPDATE CASCADE,
