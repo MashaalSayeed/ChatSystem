@@ -11,8 +11,10 @@
 -> Create / Leave Rooms
 -> Add / Kick Participants
 -> Send Messages
+-> Send attachments
 -> Private / Group Chat
 -> Change Password
+-> Update Profile Information
  
 
                 HOW TO RUN

@@ -287,6 +287,7 @@ class MainFrame(ChildFrame):
 
     def load(self):
         self.controller.window.geometry('500x525')
+        self.controller.window.title('SQL Chat')
 
         self.controller.chats.clear()
         self.controller.friends.clear()
@@ -378,8 +379,8 @@ class ChatFrame(ChildFrame):
             return
 
         filesize = os.fstat(file.fileno()).st_size
-        if filesize > 80 * (2**20):
-            return messagebox.showerror('Error', 'Cannot send attachment greater than 10mb') 
+        if filesize > 50 * (2**20):
+            return messagebox.showerror('Error', 'Cannot send attachment greater than 50 MB') 
         # Open file and store the data and filename
         filename = os.path.basename(file.name)
         filedata = base64.b64encode(file.read()).decode()
@@ -423,7 +424,7 @@ class ChatFrame(ChildFrame):
             tk.Label(attachment_frame, text=f'Attachment: {message[3]}').pack(side=tk.LEFT, fill=tk.BOTH)
             tk.Button(attachment_frame, text='Download', command=download_cmd).pack(side=tk.RIGHT, fill=tk.Y)
 
-        tk.Message(frame, text=message[0], font=FONT4, bg=bg, anchor=anchor, width=300, padx=5).pack(anchor=anchor, fill=tk.BOTH, expand=True)
+        tk.Message(frame, text=message[0], font=FONT4, bg=bg, anchor=anchor, width=350, padx=5).pack(anchor=anchor, fill=tk.BOTH, expand=True)
     
     def new_message(self, body):
         self.controller.add_message(*body)
