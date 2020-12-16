@@ -1,7 +1,11 @@
 .vscode/
-**/__pycache__/*.pyc
 folder/
+**/uploads/
+env/
+
+**/__pycache__/*.pyc
+
 *.key
 .dat
-**/uploads/
+
 credentials.dat
