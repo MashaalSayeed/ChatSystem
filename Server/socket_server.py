@@ -13,7 +13,8 @@ class SocketServer:
         self.port = port
 
         self.sockets = []
-        self.rooms = defaultdict(list)
+        self.rooms = defaultdict(set)
+        self.streams = defaultdict(set)
 
     def find_socket(self, userid):
         "Returns the first socket with the given user id"
@@ -23,24 +24,23 @@ class SocketServer:
 
     def join_room(self, socket, roomid):
         "Appends the socket to the room"
-        if socket not in self.rooms[roomid]:
-            self.rooms[roomid].append(socket)
+        self.rooms[roomid].add(socket)
 
     def leave_all_rooms(self, socket):
         "Make the socket leave all rooms"
-        [room.remove(socket) for room in self.rooms if socket in self.rooms]
+        [room.discard(socket) for room in self.rooms if socket in self.rooms]
 
     def leave_room(self, socket, roomid):
         "Makes a socket leave a room"
         if not socket:
             return
-        self.rooms[roomid].remove(socket)
+        self.rooms[roomid].discard(socket)
     
     def invite_to_room(self, userid, roomid):
         "Finds the socket and makes it join the room"
         socket = next((s for s in self.sockets if s.user and s.user[0] == userid), None)
         if socket:
-            self.rooms[roomid].append(socket)
+            self.rooms[roomid].add(socket)
     
     async def send_to(self, userid, header, body):
         "Sends a message to particular user if connected"
@@ -49,7 +49,7 @@ class SocketServer:
             await socket.send(header, body)
 
     async def create_room(self, members, room):
-        for s in self.sockets:
+        async for s in self.sockets:
             if s.user and s.user[0] in members:
                 self.join_room(s, room[0])
                 await s.send('JOIN_ROOM', room)
@@ -64,20 +64,20 @@ class SocketServer:
             await self.server.serve_forever()
 
     async def send_room(self, roomid, header, body):
-        for s in self.rooms.get(roomid, []):
-            await s.send(header, body)
+        await asyncio.gather(*(s.send(header, body) for s in self.rooms.get(roomid, [])))
 
-    async def sendall(self, header, body):
-        for s in self.sockets:
-            await s.send(header, body)
+    async def broadcast(self, sockets, header, body):
+        await asyncio.gather(*(s.send(header, body) for s in sockets))
 
     async def listen(self, reader, writer):
         "Initialise new socket instance upon connection"
         socket = Socket(self, reader, writer)
         print("\nConnection from:", socket.addr)
         self.sockets.append(socket)
-
-        await socket.listen()
+        try:
+            await socket.listen()
+        except ConnectionError:
+            print('connection errors..')
 
 
 class Socket:
@@ -87,9 +87,10 @@ class Socket:
         self.reader = reader
         self.writer = writer
         self.addr = writer.get_extra_info('peername')
-        self.user = None # [userid, email, username]
+        self.user = None
+        self.stream = None
 
-    async def send(self, header, body):
+    async def send(self, header, body={}):
         data = json.dumps({
             'header': header,
             'body': body
@@ -122,18 +123,22 @@ class Socket:
         while True:
             try:
                 header, body = await self.read()
-                print(self.addr, header)
+                #print(self.addr, header)
                 finish = await self.handle_request(header, body)
                 if finish:
                     print(self.addr, 'Connection Closed')
                     break
-            except (asyncio.IncompleteReadError, ConnectionError) as e:
+            except (asyncio.IncompleteReadError, ConnectionError, OSError) as e:
                 print(self.addr, "Disconnected due to error\n", e)
                 break
             except Exception as e:
                 print(f'\nError at {self.addr}:\n', e)
-
+            
+        await self.close()
+    
+    async def close(self):
         self.server.sockets.remove(self)
+        [s.discard(self) for s in self.server.streams.values()]
         self.writer.close()
         await self.writer.wait_closed()
 

@@ -1,6 +1,6 @@
 import base64
 import database as db
-
+import asyncio
 
 async def login(socket, server, body):
     "Handle login requests"
@@ -189,6 +189,33 @@ async def delete_room(socket, server, body):
         await socket.send('ERROR', {'message': 'Could not delete the room'})
 
 
+async def join_stream(socket, server, body):
+    code = body['code']
+    server.streams[code].add(socket)
+    socket.stream = code
+    await socket.send('STREAM_JOINED')
+
+
+async def leave_stream(socket, server, body):
+    code = socket.stream
+    if code in server.streams:
+        server.streams[code].discard(socket)
+
+
+async def video_stream(socket, server, body):
+    code = socket.stream
+    if code in server.streams:
+        sockets = server.streams[code].difference({socket})
+        await server.broadcast(sockets, 'VIDEO_STREAM', body['frame'])
+
+
+async def audio_stream(socket, server, body):
+    code = socket.stream
+    if code in server.streams:
+        sockets = server.streams[code].difference({socket})
+        await server.broadcast(sockets, 'AUDIO_STREAM', body['audio'])
+
+
 ROUTES = {
     'LOGIN': login,
     'REGISTER': register,
@@ -210,5 +237,9 @@ ROUTES = {
     'INVITE_MEMBER': invite_member,
     'LEAVE_MEMBER': leave_member,
     'KICK_MEMBER': kick_member,
-    'DELETE_ROOM': delete_room
+    'DELETE_ROOM': delete_room,
+    'JOIN_STREAM': join_stream,
+    'LEAVE_STREAM': leave_stream,
+    'VIDEO_STREAM': video_stream,
+    'AUDIO_STREAM': audio_stream
 }

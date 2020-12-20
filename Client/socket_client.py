@@ -3,6 +3,7 @@ import json
 import ssl
 
 from collections import defaultdict
+from player import VideoHandler, AudioHandler
 
 
 RECONNECT_INTERVAL = 5
@@ -27,14 +28,36 @@ class SocketClient:
         self.sslcontext.load_verify_locations('chatserver.crt')
 
         self.events = defaultdict(Event)
+        self.videohandler = VideoHandler()
+        self.audiohandler = AudioHandler()
+        self.stream_window = None
+        self.register_event('VIDEO_STREAM', self.recieve_video)
+        self.register_event('AUDIO_STREAM', self.recieve_audio)
 
     def send_data(self, header, **data):
         "Helper function to asynchronously send data to server"
-        asyncio.create_task(self.send(header, data))
+        return asyncio.create_task(self.send(header, data))
 
     def register_event(self, eventname, func):
         "Creates an event if not exists and adds a listener"
         self.events[eventname].append(func)
+
+    def connect_stream(self, tkwindow, code):
+        self.stream_window = tkwindow
+        self.send_data('JOIN_STREAM', code=code)
+
+    def start_video(self, tkwindow):
+        # Create a seperate task
+        asyncio.create_task(self.videohandler.transmit_stream(self, tkwindow))
+    
+    def recieve_video(self, frame):
+        self.videohandler.recieve_stream(frame, self.stream_window)
+
+    def start_audio(self):
+        asyncio.create_task(self.audiohandler.transmit_stream(self))
+
+    def recieve_audio(self, audio):
+        self.audiohandler.recieve_stream(audio)
 
     async def start(self):
         "Starts a new connection to the server"
@@ -56,8 +79,8 @@ class SocketClient:
 
     async def send(self, header, body={}):
         "Sends a message to the server"
-        if not self.writer:
-            return
+        if not (hasattr(self, 'writer') and self.writer):
+            return print('Lost connection to server.. Try again later')
         # Encode data in json, get the size and transmit the data
         data = json.dumps({
             'header': header,
@@ -85,7 +108,6 @@ class SocketClient:
         try:
             while True:
                 header, body = await self.read()
-                print(header)
                 
                 if header in self.events:
                     self.events[header](body)

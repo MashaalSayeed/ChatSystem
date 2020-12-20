@@ -11,6 +11,8 @@ from collections import defaultdict
 from datetime import datetime
 from tkinter import messagebox, simpledialog, filedialog
 
+from PIL import ImageTk, Image
+
 
 # Initialize fonts, colors, regex
 FONT1 = ("Arial Bold", 20)
@@ -350,6 +352,9 @@ class ChatFrame(ChildFrame):
         title_frame.grid(row=0, sticky='nsew')
         self.title = tk.Label(title_frame, pady=5, height=2, text='Room', font=FONT2)
         self.title.pack(side="left", fill=tk.BOTH, expand=True)
+        
+        self.video_btn = tk.Button(title_frame, text='Video', font=FONT3, height=2, pady=5, command=self.start_video)
+        self.video_btn.pack(side='right', fill='y')
         self.option_btn = tk.Button(title_frame, text='Options', font=FONT3, height=2, pady=5, command=self.display_options)
         self.option_btn.pack(side='right', fill=tk.Y)
 
@@ -372,7 +377,10 @@ class ChatFrame(ChildFrame):
 
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
-    
+
+    def start_video(self):
+        self.video_window = VideoWindow(self, self.controller, self.private, self.id)
+
     def get_attachment(self):
         file = filedialog.askopenfile(mode='rb')
         if not file:
@@ -467,6 +475,84 @@ class ChatFrame(ChildFrame):
             # To be honest, i didnt want this, but i found no other solution
             # to fix the scrollbar
             tk.Label(self.message_frame.frame, text='Welcome! Start the conversation by sending a message', font=FONT3).pack(pady=5, padx=10)
+
+
+class VideoWindow(tk.Toplevel):
+    def __init__(self, parent, controller, private, id):
+        super().__init__(parent)
+
+        self.controller = controller
+        self.socket = controller.socket
+        self.videohandler = self.socket.videohandler
+        self.audiohandler = self.socket.audiohandler
+        self.private = private
+        self.id = id
+
+        self.title('Video Call')
+        self.geometry('600x300')
+
+        self.make_widgets()
+        self.protocol('WM_DELETE_WINDOW', self.onclose)
+        self.socket.register_event('STREAM_JOINED', self.onjoin)
+
+    def make_widgets(self):
+        video_frame = tk.Frame(self)
+        video_frame.pack(fill='both', expand=True)
+        self.video_labels = [tk.Label(video_frame) for _ in range(2)]
+        [v.pack(side='left') for v in self.video_labels]
+
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(fill='x')
+        self.join_btn = tk.Button(btn_frame, text='Connect to Stream', command=self.connect_stream)
+        self.join_btn.pack(fill='x', side='left', expand=True)
+        self.unmute_btn = tk.Button(btn_frame, text='Unmute', command=self.unmute)
+        self.unmute_btn.pack(fill='x', side='left', expand=True)
+        self.webcam_btn = tk.Button(btn_frame, text='Open Webcam', command=self.open_camera)
+        self.webcam_btn.pack(fill='x', side='right', expand=True)
+
+    def open_camera(self):
+        if not self.videohandler.camera_open:
+            self.videohandler.camera_open = True
+            self.socket.start_video(self)
+            self.webcam_btn.configure(text='Turn off camera')
+        else:
+            self.videohandler.camera_open = False
+            self.webcam_btn.configure(text='Open Webcam')
+            self.close_video(1)
+
+    def update_video(self, frame, index):
+        self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
+        self.video_labels[index].configure(image=self.photo)
+        self.video_labels[index].image = self.photo
+
+    def close_video(self, index):
+        self.video_labels[index].configure(image='')
+
+    def unmute(self):
+        if not self.audiohandler.recording:
+            self.audiohandler.recording = True
+            self.socket.start_audio()
+            self.unmute_btn.configure(text='Mute')
+        else:
+            self.audiohandler.recording = False
+            self.unmute_btn.configure(text='unmute')
+
+    def connect_stream(self):
+        code = 'P' if self.private else 'R'
+        code += str(self.id)
+        self.socket.connect_stream(self, code)
+
+    def onjoin(self, data):
+        self.videohandler.streaming = True
+        self.audiohandler.join_stream()
+        self.join_btn.configure(text='Leave Stream', command=self.onclose)
+
+    def onclose(self):
+        self.socket.send_data('LEAVE_STREAM')
+        self.socket.events.pop('STREAM_JOINED')
+        self.videohandler.close()
+        self.audiohandler.close()
+        self.destroy()
 
 
 class ChatOptions(ChildFrame):
@@ -681,11 +767,14 @@ class FriendsFrame(ChildFrame):
     
     def make_widgets(self):
         self.member_entry = create_submit_entry(self, label_text="Enter Email ID of new friend", btn_text="Add", command=self.add_friend, row=1, column=1)
-        tk.Label(self, text='Friend List', anchor="w", font=FONT3).grid(row=4, column=1, sticky="nsew")
+        #tk.Label(self, text='Friend List', anchor="w", font=FONT3).grid(row=4, column=1, sticky="nsew")
+        
+        main_tab = ttk.Notebook(self)
+        main_tab.grid(row=4, column=1, sticky='nsew')
         
         self.friend_list = ScrollableFrame(self, bd=2, relief=tk.SUNKEN)
-        self.friend_list.grid(row=5, column=1, sticky="nsew")
-
+        #self.friend_list.grid(row=5, column=1, sticky="nsew")
+        main_tab.add(self.friend_list, text='Friends')
         grid_column_configure(self)
         [self.rowconfigure(i, minsize=15) for i in (0,3,6,8)]
         [self.rowconfigure(i, minsize=30) for i in (1,2,4,5,7,9)]
@@ -698,6 +787,7 @@ class FriendsFrame(ChildFrame):
     
     def add_success(self, friend):
         self.controller.friends[friend[0]].update({'name': friend[2], 'user': friend})
+        print(friend)
         self.new_friend(*friend)
     
     def new_friend(self, fid, uid, femail, fname):

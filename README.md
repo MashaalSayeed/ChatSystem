@@ -23,6 +23,14 @@ It is based on the Client-Server architecture, where multiple clients can connec
 - Update Profile Information
  
 
+## INSTALLATION
+
+Simply run the following to install the required libraries
+```bat
+pip install -r requirements.txt
+```
+
+
 ## HOW TO RUN
 
 1. Go to `Server/main.py`
@@ -35,6 +43,7 @@ It is based on the Client-Server architecture, where multiple clients can connec
 
 
 ## NOTES
+
 1. Requires python version **3.7+**
 2. MySQL server should also be running at the given host and port
 3. For ssl to work, `chatserver.crt` must be in both client and server folders

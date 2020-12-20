@@ -1,0 +1,9 @@
+cffi==1.14.4
+mysql-connector-python==8.0.22
+numpy==1.19.4
+opencv-python==4.4.0.46
+Pillow==8.0.1
+protobuf==3.14.0
+pycparser==2.20
+six==1.15.0
+sounddevice==0.4.1
