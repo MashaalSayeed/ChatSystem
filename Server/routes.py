@@ -1,6 +1,6 @@
 import base64
 import database as db
-import asyncio
+
 
 async def login(socket, server, body):
     "Handle login requests"
@@ -43,7 +43,7 @@ async def delete_account(socket, server, body):
 
 
 async def update_profile(socket, server, body):
-    h,b = db.update_profile(server, socket.user, **body)
+    h, b = db.update_profile(server, socket.user, **body)
     await socket.send(h, b)
     if h != 'ERROR':
         socket.user[2:] = [body.get('username'), body.get('phone'), body.get('address')]
@@ -52,7 +52,7 @@ async def update_profile(socket, server, body):
 
 async def fetch_user(socket, server, body):
     "Fetch any user from the database with their email id"
-    h,b = db.fetch_user(server, socket.user, **body)
+    h, b = db.fetch_user(server, socket.user, **body)
     await socket.send(h, b)
 
 
@@ -66,7 +66,7 @@ async def fetch_members(socket, server, body):
     "Fetch data of all members from all rooms"
     members = db.fetch_members(server, socket.user, body)
     await socket.send('FETCH_MEMBERS', members)
-        
+
 
 async def fetch_friends(socket, server, body):
     "Fetch data of all chats"
@@ -133,7 +133,7 @@ async def create_room(socket, server, body):
         await socket.send('ERROR', 'Room was not created')
 
 
-async def fetch_rooms(socket, server, body):
+async def fetch_rooms(socket, server, _):
     "Fetch all rooms this user is in and joins in them"
     rooms = db.fetch_rooms(server, socket.user)
     [server.join_room(socket, r[0]) for r in rooms] # Join all rooms this user is in
@@ -196,7 +196,7 @@ async def join_stream(socket, server, body):
     await socket.send('STREAM_JOINED')
 
 
-async def leave_stream(socket, server, body):
+async def leave_stream(socket, server, _):
     code = socket.stream
     if code in server.streams:
         server.streams[code].discard(socket)

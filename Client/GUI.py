@@ -829,8 +829,12 @@ class ProfileFrame(ChildFrame):
         info_frame = tk.LabelFrame(self, text=f'Welcome {self.controller.user[1]}!', font=FONT1, pady=5, padx=5)
         info_frame.grid(row=1, column=1, sticky='nsew')
 
-        self.image = tk.PhotoImage(file='avatar.png')
-        tk.Label(info_frame, image=self.image).grid(row=0, sticky='nsew', pady=5)
+        image_frame = tk.Frame(info_frame)
+        image_frame.grid(row=0, sticky='nsew', pady=5, padx=5)
+        image = Image.open('avatar.png').resize((150, 150))
+        self.image = ImageTk.PhotoImage(image=image)
+        tk.Label(image_frame, image=self.image).pack(fill='both', expand=True)
+        tk.Button(image_frame, text='Upload image').pack(fill='x', expand=True)
 
         side_image_frame = tk.Frame(info_frame)
         side_image_frame.grid(row=0, column=1, sticky='nsew', pady=25)
@@ -867,7 +871,7 @@ class ProfileFrame(ChildFrame):
             return messagebox.showerror('Invalid Password', 'Password must be atleast 6 characters long')
         self.socket.send_data('CHANGE_PASSWORD', oldpass=oldpass, newpass=newpass)
         if hasattr(self, 'pwindow'):
-            self.pwindow.destroy()
+            return self.pwindow.destroy()
 
     def select_status(self, event):
         colors = {
@@ -881,11 +885,11 @@ class ProfileFrame(ChildFrame):
         username, phone, address = self.username.get(), self.phone.get(), self.address.get()
         if not (3 <= len(username) <= 30): 
             return messagebox.showerror('Invalid Username', 'Username must be 3 to 30 characters long')
-        elif not username.isalnum():
+        if not username.isalnum():
             return messagebox.showerror('Invalid Username', 'Username can only contain alphabets and numbers')
-        elif phone and not phone.isdigit() or len(phone) != 9:
+        if phone and not phone.isdigit() or len(phone) != 9:
             return messagebox.showerror('Invalid Phone Number', 'Phone number must contain 9 digits')
-        elif len(address) > 100:
+        if len(address) > 100:
             return messagebox.showerr('Invalid Address', 'Address should not be more than 100 characters long')
         
         self.socket.send_data('UPDATE_PROFILE', username=username, phone=phone, address=address)
@@ -947,7 +951,7 @@ class ScrollableFrame(tk.Frame):
         "Resize frame to canvas size"
         self.canvas.itemconfigure(self.canvas_frame, width=event.width)
     
-    def update_scrollbar(self, event=None):
+    def update_scrollbar(self, _=None):
         "Update scroll region to cover whole canvas"
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.canvas.yview_moveto(1)

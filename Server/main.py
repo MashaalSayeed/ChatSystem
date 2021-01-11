@@ -9,7 +9,7 @@ class Server(SocketServer):
     "Basically gives it the sql connection"
     def __init__(self, host, port, conn, cursor):
         super().__init__(host, port)
-        
+
         self.conn = conn
         self.cursor = cursor
 
