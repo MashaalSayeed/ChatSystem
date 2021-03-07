@@ -20,4 +20,6 @@ async def main():
 
 
 # Run the main function asynchronously
-asyncio.get_event_loop().run_until_complete(main())
+loop = asyncio.get_event_loop()
+loop.set_debug(True)
+loop.run_until_complete(main())

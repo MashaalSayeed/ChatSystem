@@ -549,7 +549,7 @@ class VideoWindow(tk.Toplevel):
 
     def onclose(self):
         self.socket.send_data('LEAVE_STREAM')
-        self.socket.events.pop('STREAM_JOINED')
+        self.socket.events.pop('STREAM_JOINED', None)
         self.videohandler.close()
         self.audiohandler.close()
         self.destroy()
