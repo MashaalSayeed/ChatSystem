@@ -1,6 +1,6 @@
 import base64
 import database as db
-
+import datetime
 
 async def login(socket, server, body):
     "Handle login requests"
@@ -212,7 +212,7 @@ async def video_stream(socket, server, body):
 async def audio_stream(socket, server, body):
     code = socket.stream
     if code in server.streams:
-        sockets = server.streams[code]#.difference({socket})
+        sockets = server.streams[code].difference({socket})
         await server.broadcast(sockets, 'AUDIO_STREAM', body['audio'])
 
 
