@@ -700,7 +700,8 @@ class FriendsFrame(ChildFrame):
         self.controller.friends[friend[0]].update({'name': friend[2], 'user': friend})
         self.new_friend(*friend)
     
-    def new_friend(self, fid, uid, femail, fname):
+    def new_friend(self, fid, uid, femail, fname, *args):
+        print(args)
         main_frame = self.controller.frames['MainFrame']
         friend_frame = tk.Frame(self.friend_list.frame, height=2, bd=5, relief=tk.GROOVE)
         tk.Label(friend_frame, text=f'{femail} ~ {fname}', anchor="w", font=FONT4, padx=5).pack(side="left", fill="both", expand=True)

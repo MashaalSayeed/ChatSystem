@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   roomid INT PRIMARY KEY AUTO_INCREMENT,
   roomname VARCHAR(30),
   ownerid INT,
-  FOREIGN KEY (ownerid) REFERENCES users (userid)
+  FOREIGN KEY (ownerid) REFERENCES users (userid) ON DELETE CASCADE ON UPDATE CASCADE
 );""")
 
 cursor.execute("""
