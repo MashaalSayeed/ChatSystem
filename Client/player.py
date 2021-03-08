@@ -61,7 +61,7 @@ class AudioHandler:
         self.recording = False
         self.recieving = False
 
-        self.stream = sd.Stream(callback=self.callback, channels=1, dtype='float32')
+        self.stream = sd.RawStream(callback=self.callback, channels=1, dtype='float32')
 
         self.input_queue = asyncio.Queue()
         self.output_queue = asyncio.Queue()
@@ -71,24 +71,24 @@ class AudioHandler:
         while self.recording or not self.input_queue.empty():
             try:
                 indata = await self.input_queue.get()
-                print("Input:", len(indata))
-                await socket.send_data('AUDIO_STREAM', audio=indata.tolist())
+                encoded = base64.b64encode(indata).decode()
+                await socket.send_data('AUDIO_STREAM', audio=encoded)
                 self.input_queue.task_done()
             except Exception as e:
                 print('Error', e)
                 break
 
     def recieve_stream(self, audio):
-        self.output_queue.put_nowait(audio)
-        print("Output:", len(audio))
+        decoded = base64.b64decode(audio)
+        self.output_queue.put_nowait(decoded)
     
     def callback(self, indata, outdata, frame_count, time_info, status):
-        outdata.fill(0)
         if self.recording:
-            self.loop.call_soon_threadsafe(self.input_queue.put_nowait, indata.copy())
-            #self.input_queue.put_nowait(indata.copy())
-        elif not self.output_queue.empty():
+            self.loop.call_soon_threadsafe(self.input_queue.put_nowait, indata)
+        try:
             outdata[:] = self.output_queue.get_nowait()
+        except asyncio.QueueEmpty:
+            outdata[:] = bytearray(len(outdata))
 
     def join_stream(self):
         self.stream.start()
